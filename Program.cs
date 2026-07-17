@@ -16,7 +16,7 @@ namespace OOPFinalExam
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.WriteLine("==================================================");
-            Console.WriteLine("SKYLINKS AIRWAYS - PART A DEMONSTRATION");
+            Console.WriteLine("SKYLINKS AIRWAYS - PART A, Q8 AND Q9 DEMONSTRATION");
             Console.WriteLine("==================================================");
 
             // Initialize Manager
@@ -108,6 +108,7 @@ namespace OOPFinalExam
             // 4. Add at least 12 bookings (mix of statuses)
             // --------------------------------------------------
             Console.WriteLine("\n--- Adding 12 Bookings ---");
+            Booking aFullFlightBooking = null;
             try
             {
                 // Flight 1 (VN1) Bookings (Capacity 100)
@@ -124,7 +125,12 @@ namespace OOPFinalExam
                 aManager.AddBooking(aFlightVj1.Id, "Vu Thi G", "PP007", "03B", BookingStatus.Pending);
 
                 // Flight 4 (VJ2) Bookings (Capacity 1)
-                aManager.AddBooking(aFlightVj2.Id, "Doan Van H", "PP008", "04A", BookingStatus.Confirmed); // Fills flight
+                aFullFlightBooking = aManager.AddBooking(
+                    aFlightVj2.Id,
+                    "Doan Van H",
+                    "PP008",
+                    "04A",
+                    BookingStatus.Confirmed); // Fills flight
 
                 // Flight 5 (QH1) Bookings (Capacity 120)
                 aManager.AddBooking(aFlightQh1.Id, "Bui Thi I", "PP009", "05A", BookingStatus.Confirmed);
@@ -168,16 +174,100 @@ namespace OOPFinalExam
                 Console.WriteLine($"Caught expected exception: {aEx.Message}");
             }
 
-            // Demonstrate full-flight validation (capacity check)
-            Console.WriteLine("\n--- Testing Full-Flight Validation ---");
-            try
+            // --------------------------------------------------
+            // 5. Q8 - Sorting algorithms and binary search
+            // --------------------------------------------------
+            Console.WriteLine("\n--- Q8: Sorting Algorithms and Binary Search ---");
+            List<Flight> aSortingSource = new List<Flight>(aManager.Flights);
+            aSortingSource.Add(
+                new Flight(101, aAirlineVn.Id, "TEST101", "HAN", "PQC",
+                    aFutureDate.AddHours(7), 125, 50, 950000m));
+            aSortingSource.Add(
+                new Flight(102, aAirlineVj.Id, "TEST102", "SGN", "HUI",
+                    aFutureDate.AddHours(1), 85, 60, 2100000m));
+            aSortingSource.Add(
+                new Flight(103, aAirlineQh.Id, "TEST103", "DAD", "HAN",
+                    aFutureDate.AddDays(4), 80, 70, 1100000m));
+            aSortingSource.Add(
+                new Flight(104, aAirlineVn.Id, "TEST104", "CXR", "SGN",
+                    aFutureDate.AddDays(3), 70, 80, 1750000m));
+
+            List<Flight> aPriceSortedFlights = new List<Flight>(aSortingSource);
+            aManager.BubbleSortByPrice(aPriceSortedFlights);
+            Console.WriteLine("Bubble Sort by Price (ascending):");
+            foreach (Flight aFlight in aPriceSortedFlights)
             {
-                // Flight VJ2 has capacity 1, and we already added one Confirmed booking ("Doan Van H")
-                aManager.AddBooking(aFlightVj2.Id, "Standby Passenger", "PP100", "04B", BookingStatus.Confirmed);
+                Console.WriteLine($"  {aFlight.FlightCode}: {aFlight.PricePerSeat:N0}");
             }
-            catch (Exception aEx)
+            Console.WriteLine(
+                $"Bubble Sort comparisons: {aManager.BubbleSortComparisonCount}");
+
+            List<Flight> aDepartureSortedFlights = new List<Flight>(aSortingSource);
+            aManager.MergeSortByDeparture(aDepartureSortedFlights);
+            Console.WriteLine("Merge Sort by DepartureTime (ascending):");
+            foreach (Flight aFlight in aDepartureSortedFlights)
             {
-                Console.WriteLine($"Caught expected exception: {aEx.Message}");
+                Console.WriteLine(
+                    $"  {aFlight.FlightCode}: {aFlight.DepartureTime:yyyy-MM-dd HH:mm}");
+            }
+            Console.WriteLine(
+                $"Merge Sort comparisons: {aManager.MergeSortComparisonCount}");
+
+            DateTime aSearchDeparture = aSortingSource[7].DepartureTime;
+            int aiFoundIndex = aManager.BinarySearchByDeparture(
+                aDepartureSortedFlights,
+                aSearchDeparture);
+            Console.WriteLine(
+                aiFoundIndex >= 0
+                    ? $"Binary Search found {aDepartureSortedFlights[aiFoundIndex].FlightCode} at index {aiFoundIndex}."
+                    : "Binary Search did not find the requested departure time.");
+
+            // --------------------------------------------------
+            // 6. Q9 - Min-heap standby queue and promotion
+            // --------------------------------------------------
+            Console.WriteLine("\n--- Q9: Standby Priority Queue ---");
+            aManager.AddBooking(
+                aFlightVj2.Id,
+                "Regular Standby",
+                "PP100",
+                "04B",
+                BookingStatus.Confirmed,
+                3);
+            aManager.AddBooking(
+                aFlightVj2.Id,
+                "VIP Standby",
+                "PP101",
+                "04C",
+                BookingStatus.Confirmed,
+                1);
+            aManager.AddBooking(
+                aFlightVj2.Id,
+                "Frequent Flyer Standby",
+                "PP102",
+                "04D",
+                BookingStatus.Confirmed,
+                2);
+
+            StandbyQueue aStandbyQueue = aManager.GetStandbyQueue(aFlightVj2.Id);
+            Console.WriteLine(
+                $"Flight {aFlightVj2.FlightCode} standby queue ({aStandbyQueue.Count} passengers):");
+            foreach (StandbyPassenger aPassenger in aStandbyQueue.GetPassengersInPriorityOrder())
+            {
+                Console.WriteLine($"  {aPassenger}");
+            }
+
+            if (aFullFlightBooking != null)
+            {
+                aManager.CancelBooking(aFullFlightBooking.Id);
+                Console.WriteLine(
+                    $"Cancelled booking {aFullFlightBooking.Id}; status is now {aFullFlightBooking.Status}.");
+
+                Booking aPromotedBooking = aManager.PromoteFromStandby(aFlightVj2.Id);
+                Console.WriteLine(
+                    $"Promoted: {aPromotedBooking.PassengerName}, Priority 1, " +
+                    $"Seat {aPromotedBooking.SeatNumber}, Status {aPromotedBooking.Status}.");
+                Console.WriteLine(
+                    $"Passengers still on standby: {aStandbyQueue.Count}");
             }
 
             // Demonstrate Abstraction and Polymorphism
@@ -196,7 +286,7 @@ namespace OOPFinalExam
                 Console.WriteLine("--------------------------------------------------");
             }
 
-            Console.WriteLine("\nPART A DEMONSTRATION COMPLETE.");
+            Console.WriteLine("\nPART A, Q8 AND Q9 DEMONSTRATION COMPLETE.");
         }
     }
 }
