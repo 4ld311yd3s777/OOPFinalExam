@@ -177,8 +177,9 @@ namespace OOPFinalExam
         /// <param name="thesPassportNumber">The unique passport number of the passenger.</param>
         /// <param name="thesSeatNumber">The seat number.</param>
         /// <param name="theoStatus">The status of the booking.</param>
-        /// <returns>The created <see cref="Booking"/> instance.</returns>
-        public Booking AddBooking(int theiFlightId, string thesPassengerName, string thesPassportNumber, string thesSeatNumber, BookingStatus theoStatus)
+        /// <param name="theiPriority">The priority of the passenger if added to standby (default is 3).</param>
+        /// <returns>The created <see cref="Booking"/> instance, or null if passenger is added to standby.</returns>
+        public Booking AddBooking(int theiFlightId, string thesPassengerName, string thesPassportNumber, string thesSeatNumber, BookingStatus theoStatus, int theiPriority = 3)
         {
             // Validate FlightId exists
             Flight aFlight = FindFlightById(theiFlightId);
@@ -199,7 +200,7 @@ namespace OOPFinalExam
             // Enforce uniqueness: SeatNumber must be unique per flight
             foreach (Booking aBooking in myoBookings)
             {
-                if (aBooking.FlightId == theiFlightId && aBooking.SeatNumber.Equals(thesSeatNumber, StringComparison.OrdinalIgnoreCase))
+                if (aBooking.FlightId == theiFlightId && aBooking.SeatNumber.Equals(thesSeatNumber, StringComparison.OrdinalIgnoreCase) && aBooking.Status != BookingStatus.Cancelled)
                 {
                     throw new ArgumentException($"Seat '{thesSeatNumber}' is already taken on Flight {theiFlightId}.");
                 }
@@ -219,13 +220,65 @@ namespace OOPFinalExam
 
                 if (aiConfirmedCount >= aFlight.TotalSeats)
                 {
-                    throw new InvalidOperationException($"Flight {aFlight.FlightCode} is full (Capacity: {aFlight.TotalSeats}).");
+                    aFlight.StandbyQueue.Enqueue(new StandbyPassenger(thesPassengerName, thesPassportNumber, theiPriority, DateTime.Now));
+                    Console.WriteLine($"Flight {aFlight.FlightCode} is full. Passenger '{thesPassengerName}' added to standby queue with priority {theiPriority}.");
+                    return null;
                 }
             }
 
             Booking aNewBooking = new Booking(myiNextBookingId++, theiFlightId, thesPassengerName, thesPassportNumber, thesSeatNumber, theoStatus, aFlight.PricePerSeat);
             myoBookings.Add(aNewBooking);
             return aNewBooking;
+        }
+
+        /// <summary>
+        /// Promotes the top standby passenger for the given flight to confirmed status if a seat is available.
+        /// </summary>
+        /// <param name="theiFlightId">The flight ID.</param>
+        public void PromoteFromStandby(int theiFlightId)
+        {
+            Flight aFlight = FindFlightById(theiFlightId);
+            if (aFlight == null)
+            {
+                throw new ArgumentException($"Flight with ID {theiFlightId} does not exist.");
+            }
+
+            if (aFlight.StandbyQueue.Count() == 0)
+            {
+                Console.WriteLine($"No passengers in standby queue for flight {aFlight.FlightCode} to promote.");
+                return;
+            }
+
+            int aiConfirmedCount = 0;
+            foreach (Booking aBooking in myoBookings)
+            {
+                if (aBooking.FlightId == theiFlightId && aBooking.Status == BookingStatus.Confirmed)
+                {
+                    aiConfirmedCount++;
+                }
+            }
+
+            if (aiConfirmedCount < aFlight.TotalSeats)
+            {
+                string asAssignedSeat = "SBY-01";
+                foreach (Booking aBooking in myoBookings)
+                {
+                    if (aBooking.FlightId == theiFlightId && aBooking.Status == BookingStatus.Cancelled)
+                    {
+                        asAssignedSeat = aBooking.SeatNumber;
+                        break;
+                    }
+                }
+
+                StandbyPassenger aTopPassenger = aFlight.StandbyQueue.Dequeue();
+                Console.WriteLine($"Promoting {aTopPassenger.PassengerName} from standby to confirmed for flight {aFlight.FlightCode} with seat {asAssignedSeat}.");
+
+                AddBooking(theiFlightId, aTopPassenger.PassengerName, aTopPassenger.PassportNumber, asAssignedSeat, BookingStatus.Confirmed, aTopPassenger.Priority);
+            }
+            else
+            {
+                Console.WriteLine($"Flight {aFlight.FlightCode} is still full, cannot promote from standby.");
+            }
         }
 
         /// <summary>

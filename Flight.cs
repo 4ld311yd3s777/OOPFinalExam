@@ -48,6 +48,19 @@ namespace OOPFinalExam
         private decimal myddPricePerSeat;
 
         /// <summary>
+        /// The flight's standby queue.
+        /// </summary>
+        private StandbyQueue myoStandbyQueue;
+
+        /// <summary>
+        /// Gets the flight's standby queue.
+        /// </summary>
+        public StandbyQueue StandbyQueue
+        {
+            get { return myoStandbyQueue; }
+        }
+
+        /// <summary>
         /// Gets the airline ID (read-only).
         /// </summary>
         public int AirlineId
@@ -193,8 +206,9 @@ namespace OOPFinalExam
             : base(theiId)
         {
             myiAirlineId = theiAirlineId;
+            myoStandbyQueue = new StandbyQueue();
             mysFlightCode = thesFlightCode;
-            
+
             // Set fields directly or through properties to trigger validation.
             // Since we need to validate, let's use the properties.
             // Note: Destination and Origin check each other, so set destination/origin carefully.
