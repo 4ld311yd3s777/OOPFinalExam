@@ -168,17 +168,42 @@ namespace OOPFinalExam
                 Console.WriteLine($"Caught expected exception: {aEx.Message}");
             }
 
-            // Demonstrate full-flight validation (capacity check)
-            Console.WriteLine("\n--- Testing Full-Flight Validation ---");
-            try
+            // --------------------------------------------------
+            // 5. Demonstrate Standby Queue and PromoteFromStandby
+            // --------------------------------------------------
+            Console.WriteLine("\n--- Testing Priority Queue for Standby Passengers ---");
+            // Fill a flight to capacity (VJ2 has capacity 1 and already has 1 confirmed booking from above)
+            Console.WriteLine($"Flight VJ2 capacity is {aFlightVj2.TotalSeats}. The flight is already full.");
+
+            // Add 3 more passengers; they should go to standby queue
+            aManager.AddBooking(aFlightVj2.Id, "Regular Pass", "PP101", "04B", BookingStatus.Confirmed, 3);
+            System.Threading.Thread.Sleep(10); // Ensure distinct registration times
+            aManager.AddBooking(aFlightVj2.Id, "VIP Pass", "PP102", "04C", BookingStatus.Confirmed, 1);
+            System.Threading.Thread.Sleep(10);
+            aManager.AddBooking(aFlightVj2.Id, "Freq Flyer Pass", "PP103", "04D", BookingStatus.Confirmed, 2);
+
+            Console.WriteLine($"Standby queue count for VJ2: {aFlightVj2.StandbyQueue.Count()}");
+            Console.WriteLine($"Top passenger expected: VIP Pass (Priority 1)");
+            Console.WriteLine($"Actual top: {aFlightVj2.StandbyQueue.Peek().PassengerName} (Priority {aFlightVj2.StandbyQueue.Peek().Priority})");
+
+            Console.WriteLine("\nCancelling the only confirmed booking on VJ2...");
+            Booking aBookingVJ2 = null;
+            foreach (Booking aBooking in aManager.Bookings)
             {
-                // Flight VJ2 has capacity 1, and we already added one Confirmed booking ("Doan Van H")
-                aManager.AddBooking(aFlightVj2.Id, "Standby Passenger", "PP100", "04B", BookingStatus.Confirmed);
+                 if (aBooking.FlightId == aFlightVj2.Id && aBooking.Status == BookingStatus.Confirmed)
+                 {
+                     aBookingVJ2 = aBooking;
+                     break;
+                 }
             }
-            catch (Exception aEx)
+            if (aBookingVJ2 != null)
             {
-                Console.WriteLine($"Caught expected exception: {aEx.Message}");
+                 aBookingVJ2.Status = BookingStatus.Cancelled;
+                 Console.WriteLine($"Cancelled booking for {aBookingVJ2.PassengerName}");
             }
+
+            Console.WriteLine("\nCalling PromoteFromStandby...");
+            aManager.PromoteFromStandby(aFlightVj2.Id);
 
             // Demonstrate Abstraction and Polymorphism
             Console.WriteLine("\n--- Demonstration of Abstraction and Polymorphism ---");
