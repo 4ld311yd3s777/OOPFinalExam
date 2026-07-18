@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq; 
 
 namespace OOPFinalExam
 {
@@ -348,6 +349,185 @@ namespace OOPFinalExam
                 }
             }
             return null;
+        }
+        // =====================================================================
+        // Q5. COMPLEX LINQ QUERIES (q -> u)
+        // =====================================================================
+
+        // q) Returns all confirmed bookings for a given flight ID, sorted by seat number ascending.
+        public List<object> ConfirmedBookings (int theiFlightId)
+        {
+            var confirmedBookings = from b in Bookings
+                                   
+                                    where b.FlightId == theiFlightId && b.Status == BookingStatus.Confirmed 
+                                    orderby b.SeatNumber ascending
+                                    select new
+                                    {
+                                        b.PassengerName,
+                                        b.PassportNumber,
+                                        b.SeatNumber,
+                                        b.BookingFee,
+                                    };
+            return confirmedBookings.Cast<object>().ToList(); 
+        }
+        // r) Returns the top 5 most expensive flights that still have available seats, sorted by price descending.
+        public List<object> GetTop5ExpensiveAvailableFlights()
+        {
+            var result = (from f in myoFlights
+                          join a in myoAirlines on f.AirlineId equals a.Id
+                          join b in myoBookings on f.Id equals b.FlightId into flightBookings
+                          let confirmedCount = flightBookings.Count(b => b.Status == BookingStatus.Confirmed)
+                          let availableSeats = f.TotalSeats - confirmedCount
+                          where availableSeats > 0
+                          orderby f.PricePerSeat descending
+                          select new
+                          {
+                              AirlineName = a.AirlineName,
+                              f.FlightCode,
+                              f.Origin,
+                              f.Destination,
+                              f.PricePerSeat,
+                              AvailableSeats = availableSeats
+                          })
+                          .Take(5);
+
+            return result.Cast<object>().ToList();
+        }
+       
+        // s) Computes total flights, total bookings, confirmed bookings, and total revenue per airline, sorted by revenue descending.
+        public List<object> GetAirlineFinancialStatistics()
+        {
+            var result = from a in myoAirlines
+                         join f in myoFlights on a.Id equals f.AirlineId into airlineFlights
+                         let flightIds = airlineFlights.Select(x => x.Id)
+                         join b in myoBookings on 1 equals 1 into allBookings
+                         let airlineBookings = allBookings.Where(x => flightIds.Contains(x.FlightId))
+                         let confirmedBookings = airlineBookings.Where(x => x.Status == BookingStatus.Confirmed)
+                         let totalRevenue = confirmedBookings.Sum(x => x.BookingFee)
+                         select new
+                         {
+                             AirlineName = a.AirlineName,
+                             TotalFlights = airlineFlights.Count(),
+                             TotalBookings = airlineBookings.Count(),
+                             ConfirmedBookings = confirmedBookings.Count(),
+                             TotalRevenue = totalRevenue
+                         } into stats
+                         orderby stats.TotalRevenue descending
+                         select stats;
+
+            return result.Cast<object>().ToList();
+        }
+
+        // t) Finds all frequent passengers who have booked more than one flight across all airlines.
+        public List<object> GetFrequentPassengers()
+        {
+            var result = from b in myoBookings
+                         group b by new { b.PassportNumber, b.PassengerName } into g
+                         where g.Count() > 1
+                         select new
+                         {
+                             PassengerName = g.Key.PassengerName,
+                             PassportNumber = g.Key.PassportNumber,
+                             FlightCount = g.Count()
+                         };
+
+            return result.Cast<object>().ToList();
+        }
+
+        // u) Returns the flight schedule for a specific route (origin and destination pair), sorted by departure time ascending.
+        public List<object> GetFlightSchedule(string thesOrigin, string thesDestination)
+        {
+            var result = from f in myoFlights
+                         where f.Origin.Equals(thesOrigin, StringComparison.OrdinalIgnoreCase)
+                               && f.Destination.Equals(thesDestination, StringComparison.OrdinalIgnoreCase)
+                         join b in myoBookings on f.Id equals b.FlightId into flightBookings
+                         let confirmedCount = flightBookings.Count(x => x.Status == BookingStatus.Confirmed)
+                         let availableSeats = f.TotalSeats - confirmedCount
+                         orderby f.DepartureTime ascending
+                         select new
+                         {
+                             f.FlightCode,
+                             f.DepartureTime,
+                             f.DurationMinutes,
+                             f.PricePerSeat,
+                             AvailableSeats = availableSeats
+                         };
+
+            return result.Cast<object>().ToList();
+        }
+
+        // =====================================================================
+        // Q6. ADVANCED AGGREGATION & PROJECTION (v -> y)
+        // =====================================================================
+
+        // v) Finds the busiest day of the week by evaluating the total number of departures.
+        public object FindBusiestDayOfWeek()
+        {
+            var busiestDay = (from f in myoFlights
+                              group f by f.DepartureTime.DayOfWeek into g
+                              orderby g.Count() descending
+                              select new
+                              {
+                                  DayName = g.Key.ToString(),
+                                  Count = g.Count()
+                              })
+                              .FirstOrDefault();
+
+            return busiestDay;
+        }
+
+        // w) Calculates the average load factor percentage rounded to 2 decimal places for active airlines.
+        public List<object> GetAverageLoadFactorPerAirline()
+        {
+            var result = from a in myoAirlines
+                         join f in myoFlights on a.Id equals f.AirlineId into airlineFlights
+                         where airlineFlights.Any()
+                         select new
+                         {
+                             AirlineName = a.AirlineName,
+                             AvgLoadFactor = Math.Round(
+                                 airlineFlights.Average(f => {
+                                     int confirmed = myoBookings.Count(b => b.FlightId == f.Id && b.Status == BookingStatus.Confirmed);
+                                     return ((double)confirmed / f.TotalSeats) * 100;
+                                 }), 2)
+                         };
+
+            return result.Cast<object>().ToList();
+        }
+
+        // x) Groups all flights by route and returns flight counts along with min, max, and average seat pricing.
+        public List<object> GetRouteStatistics()
+        {
+            var result = from f in myoFlights
+                         group f by new { f.Origin, f.Destination } into g
+                         select new
+                         {
+                             Route = $"{g.Key.Origin}-{g.Key.Destination}".ToUpper(),
+                             FlightCount = g.Count(),
+                             CheapestPrice = g.Min(x => x.PricePerSeat),
+                             MostExpensivePrice = g.Max(x => x.PricePerSeat),
+                             AveragePrice = g.Average(x => x.PricePerSeat)
+                         } into routeStats
+                         orderby routeStats.FlightCount descending
+                         select routeStats;
+
+            return result.Cast<object>().ToList();
+        }
+
+        // y) Identifies passengers who have completely cancelled every single booking they have ever placed.
+        public List<object> GetPassengersWithAllCancelledBookings()
+        {
+            var result = from b in myoBookings
+                         group b by new { b.PassportNumber, b.PassengerName } into g
+                         where g.All(x => x.Status == BookingStatus.Cancelled)
+                         select new
+                         {
+                             PassengerName = g.Key.PassengerName,
+                             PassportNumber = g.Key.PassportNumber,
+                             CancelledCount = g.Count()
+                         };
+
+            return result.Cast<object>().ToList();
         }
     }
 }
