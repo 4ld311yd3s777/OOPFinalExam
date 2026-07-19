@@ -43,6 +43,15 @@ namespace OOPFinalExam
             return heap.Count;
         }
 
+        /// <summary>
+        /// Determines whether the standby queue is empty.
+        /// </summary>
+        /// <returns>True if empty; otherwise, false.</returns>
+        public bool IsEmpty()
+        {
+            return heap.Count == 0;
+        }
+
         private void HeapifyUp(int index)
         {
             int parent = (index - 1) / 2;
