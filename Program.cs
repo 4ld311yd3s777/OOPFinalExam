@@ -9,14 +9,14 @@ namespace OOPFinalExam
     public class Program
     {
         /// <summary>
-        /// Demonstrates all the functionality required in PART A of the exam.
+        /// Demonstrates the implemented airline reservation features, including Q7 and Q8.
         /// </summary>
         /// <param name="theargs">The command line arguments.</param>
         public static void Main(string[] theargs)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.WriteLine("==================================================");
-            Console.WriteLine("SKYLINKS AIRWAYS - PART A DEMONSTRATION");
+            Console.WriteLine("SKYLINK AIRWAYS - OOP FINAL EXAM DEMONSTRATION");
             Console.WriteLine("==================================================");
 
             // Initialize Manager
@@ -198,12 +198,87 @@ namespace OOPFinalExam
             }
             if (aBookingVJ2 != null)
             {
-                 aBookingVJ2.Status = BookingStatus.Cancelled;
+                 aManager.CancelBooking(aBookingVJ2.Id);
                  Console.WriteLine($"Cancelled booking for {aBookingVJ2.PassengerName}");
             }
 
             Console.WriteLine("\nCalling PromoteFromStandby...");
             aManager.PromoteFromStandby(aFlightVj2.Id);
+
+            // --------------------------------------------------
+            // 6. Q7 - Demonstrate SkyStack and booking history undo
+            // --------------------------------------------------
+            Console.WriteLine("\n--- Q7: Custom SkyStack and Booking History ---");
+            SkyStack<int> aoTestStack = new SkyStack<int>();
+            for (int aiValue = 1; aiValue <= 10; aiValue++)
+            {
+                aoTestStack.Push(aiValue);
+            }
+            Console.WriteLine($"SkyStack size after 10 pushes: {aoTestStack.Size()}");
+            Console.WriteLine($"SkyStack top before pop: {aoTestStack.Peek()}");
+            Console.WriteLine($"SkyStack popped value: {aoTestStack.Pop()}");
+
+            Booking aHistoryBooking1 = aManager.AddBooking(
+                aFlightVn1.Id, "History Passenger One", "PP201", "11A", BookingStatus.Confirmed);
+            Booking aHistoryBooking2 = aManager.AddBooking(
+                aFlightVn1.Id, "History Passenger Two", "PP202", "11B", BookingStatus.Pending);
+            Booking aHistoryBooking3 = aManager.AddBooking(
+                aFlightVn1.Id, "History Passenger Three", "PP203", "11C", BookingStatus.Confirmed);
+
+            Console.WriteLine(
+                $"Added bookings: {aHistoryBooking1.Id}, {aHistoryBooking2.Id}, {aHistoryBooking3.Id}");
+            aManager.CancelBooking(aHistoryBooking2.Id);
+            Console.WriteLine(
+                $"Before undo: booking {aHistoryBooking2.Id} status = {aHistoryBooking2.Status}");
+
+            Booking aUndoneBooking = aManager.UndoLastBookingAction();
+            Console.WriteLine(
+                $"After undo: booking {aUndoneBooking.Id} status = {aUndoneBooking.Status}");
+            Console.WriteLine($"Booking history entries remaining: {aManager.BookingHistorySize}");
+
+            // --------------------------------------------------
+            // 7. Q8 - Demonstrate custom sorting and binary search
+            // --------------------------------------------------
+            Console.WriteLine("\n--- Q8: Flight Sorting Algorithms and Binary Search ---");
+
+            // Add four flights so both algorithms operate on the same 10 flight objects.
+            aManager.AddFlight(aAirlineVn.Id, "DAD", "PQC", aFutureDate.AddHours(5), 75, 90, 900000m);
+            aManager.AddFlight(aAirlineVj.Id, "SGN", "HPH", aFutureDate.AddDays(12), 125, 150, 2400000m);
+            aManager.AddFlight(aAirlineQh.Id, "VCA", "DLI", aFutureDate.AddDays(6), 70, 80, 1100000m);
+            aManager.AddFlight(aAirlineVn.Id, "PQC", "HAN", aFutureDate.AddDays(3), 130, 100, 1800000m);
+
+            List<Flight> aoFlightsByPrice = new List<Flight>(aManager.Flights);
+            List<Flight> aoFlightsByDeparture = new List<Flight>(aManager.Flights);
+            DateTime adtSearchTarget = aFlightVj1.DepartureTime;
+
+            aManager.BubbleSortByPrice(aoFlightsByPrice);
+            Console.WriteLine("Bubble Sort by PricePerSeat (ascending):");
+            foreach (Flight aFlight in aoFlightsByPrice)
+            {
+                Console.WriteLine($"{aFlight.FlightCode}: {aFlight.PricePerSeat:N0}");
+            }
+            Console.WriteLine(
+                $"Bubble Sort comparisons: {aManager.BubbleSortComparisonCount}");
+
+            aManager.MergeSortByDeparture(aoFlightsByDeparture);
+            Console.WriteLine("\nMerge Sort by DepartureTime (ascending):");
+            foreach (Flight aFlight in aoFlightsByDeparture)
+            {
+                Console.WriteLine(
+                    $"{aFlight.FlightCode}: {aFlight.DepartureTime:yyyy-MM-dd HH:mm:ss}");
+            }
+            Console.WriteLine(
+                $"Merge Sort comparisons: {aManager.MergeSortComparisonCount}");
+
+            int aiFoundIndex = aManager.BinarySearchByDeparture(
+                aoFlightsByDeparture, adtSearchTarget);
+            Console.WriteLine(
+                $"\nBinary Search target {adtSearchTarget:yyyy-MM-dd HH:mm:ss}: index {aiFoundIndex}");
+            if (aiFoundIndex >= 0)
+            {
+                Console.WriteLine(
+                    $"Found flight: {aoFlightsByDeparture[aiFoundIndex].FlightCode}");
+            }
 
             // Demonstrate Abstraction and Polymorphism
             Console.WriteLine("\n--- Demonstration of Abstraction and Polymorphism ---");
@@ -221,7 +296,7 @@ namespace OOPFinalExam
                 Console.WriteLine("--------------------------------------------------");
             }
 
-            Console.WriteLine("\nPART A DEMONSTRATION COMPLETE.");
+            Console.WriteLine("\nQ7 AND Q8 DEMONSTRATION COMPLETE.");
         }
     }
 }
