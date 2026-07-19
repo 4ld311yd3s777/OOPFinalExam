@@ -25,6 +25,26 @@ namespace OOPFinalExam
         private List<Booking> myoBookings;
 
         /// <summary>
+        /// The booking objects recorded in last-in, first-out action order.
+        /// </summary>
+        private SkyStack<Booking> myoBookingHistory;
+
+        /// <summary>
+        /// The metadata used to reverse each corresponding booking history entry.
+        /// </summary>
+        private SkyStack<BookingAction> myoBookingActions;
+
+        /// <summary>
+        /// The number of comparisons made by the most recent bubble sort.
+        /// </summary>
+        private int myiBubbleSortComparisonCount;
+
+        /// <summary>
+        /// The number of comparisons made by the most recent merge sort.
+        /// </summary>
+        private int myiMergeSortComparisonCount;
+
+        /// <summary>
         /// Counter for auto-incrementing Airline IDs.
         /// </summary>
         private int myiNextAirlineId;
@@ -38,6 +58,30 @@ namespace OOPFinalExam
         /// Counter for auto-incrementing Booking IDs.
         /// </summary>
         private int myiNextBookingId;
+
+        /// <summary>
+        /// The number of reversible booking actions currently stored.
+        /// </summary>
+        public int BookingHistorySize
+        {
+            get { return myoBookingHistory.Size(); }
+        }
+
+        /// <summary>
+        /// Gets the number of price comparisons made by the most recent bubble sort.
+        /// </summary>
+        public int BubbleSortComparisonCount
+        {
+            get { return myiBubbleSortComparisonCount; }
+        }
+
+        /// <summary>
+        /// Gets the number of departure-time comparisons made by the most recent merge sort.
+        /// </summary>
+        public int MergeSortComparisonCount
+        {
+            get { return myiMergeSortComparisonCount; }
+        }
 
         /// <summary>
         /// Gets the list of airlines.
@@ -71,9 +115,13 @@ namespace OOPFinalExam
             myoAirlines = new List<Airline>();
             myoFlights = new List<Flight>();
             myoBookings = new List<Booking>();
+            myoBookingHistory = new SkyStack<Booking>();
+            myoBookingActions = new SkyStack<BookingAction>();
             myiNextAirlineId = 1;
             myiNextFlightId = 1;
             myiNextBookingId = 1;
+            myiBubbleSortComparisonCount = 0;
+            myiMergeSortComparisonCount = 0;
         }
 
         /// <summary>
@@ -229,7 +277,66 @@ namespace OOPFinalExam
 
             Booking aNewBooking = new Booking(myiNextBookingId++, theiFlightId, thesPassengerName, thesPassportNumber, thesSeatNumber, theoStatus, aFlight.PricePerSeat);
             myoBookings.Add(aNewBooking);
+            myoBookingHistory.Push(aNewBooking);
+            myoBookingActions.Push(new BookingAction(BookingActionType.Added, theoStatus));
             return aNewBooking;
+        }
+
+        /// <summary>
+        /// Cancels an existing booking and records its previous status for undo.
+        /// </summary>
+        /// <param name="theiBookingId">The ID of the booking to cancel.</param>
+        /// <returns>The cancelled booking.</returns>
+        /// <exception cref="ArgumentException">Thrown when the booking does not exist.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the booking is already cancelled.</exception>
+        public Booking CancelBooking(int theiBookingId)
+        {
+            Booking aBooking = FindBookingById(theiBookingId);
+            if (aBooking == null)
+            {
+                throw new ArgumentException($"Booking with ID {theiBookingId} does not exist.");
+            }
+
+            if (aBooking.Status == BookingStatus.Cancelled)
+            {
+                throw new InvalidOperationException($"Booking with ID {theiBookingId} is already cancelled.");
+            }
+
+            BookingStatus aoPreviousStatus = aBooking.Status;
+            aBooking.Status = BookingStatus.Cancelled;
+            myoBookingHistory.Push(aBooking);
+            myoBookingActions.Push(new BookingAction(BookingActionType.Cancelled, aoPreviousStatus));
+            return aBooking;
+        }
+
+        /// <summary>
+        /// Reverses the most recent booking addition or cancellation.
+        /// </summary>
+        /// <returns>The booking affected by the undo operation.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when there is no booking action to undo.</exception>
+        public Booking UndoLastBookingAction()
+        {
+            if (myoBookingHistory.IsEmpty())
+            {
+                throw new InvalidOperationException("There is no booking action to undo.");
+            }
+
+            Booking aBooking = myoBookingHistory.Pop();
+            BookingAction aAction = myoBookingActions.Pop();
+
+            if (aAction.ActionType == BookingActionType.Added)
+            {
+                if (!myoBookings.Remove(aBooking))
+                {
+                    throw new InvalidOperationException($"Booking with ID {aBooking.Id} can no longer be removed.");
+                }
+            }
+            else
+            {
+                aBooking.Status = aAction.PreviousStatus;
+            }
+
+            return aBooking;
         }
 
         /// <summary>
@@ -350,6 +457,195 @@ namespace OOPFinalExam
             }
             return null;
         }
+
+        /// <summary>
+        /// Finds a booking by its ID.
+        /// </summary>
+        /// <param name="theiId">The booking ID to find.</param>
+        /// <returns>The matching booking, or <see langword="null"/> when it does not exist.</returns>
+        private Booking FindBookingById(int theiId)
+        {
+            foreach (Booking aBooking in myoBookings)
+            {
+                if (aBooking.Id == theiId)
+                {
+                    return aBooking;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Sorts flights in place by price per seat in ascending order using bubble sort.
+        /// </summary>
+        /// <param name="theoList">The flight list to sort.</param>
+        /// <exception cref="ArgumentNullException">Thrown when the flight list is null.</exception>
+        public void BubbleSortByPrice(List<Flight> theoList)
+        {
+            if (theoList == null)
+            {
+                throw new ArgumentNullException(nameof(theoList));
+            }
+
+            myiBubbleSortComparisonCount = 0;
+
+            for (int aiEnd = theoList.Count - 1; aiEnd > 0; aiEnd--)
+            {
+                bool abSwapped = false;
+
+                for (int aiIndex = 0; aiIndex < aiEnd; aiIndex++)
+                {
+                    myiBubbleSortComparisonCount++;
+                    if (theoList[aiIndex].PricePerSeat > theoList[aiIndex + 1].PricePerSeat)
+                    {
+                        Flight aFlight = theoList[aiIndex];
+                        theoList[aiIndex] = theoList[aiIndex + 1];
+                        theoList[aiIndex + 1] = aFlight;
+                        abSwapped = true;
+                    }
+                }
+
+                if (!abSwapped)
+                {
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sorts flights in place by departure time in ascending order using recursive merge sort.
+        /// </summary>
+        /// <param name="theoList">The flight list to sort.</param>
+        /// <exception cref="ArgumentNullException">Thrown when the flight list is null.</exception>
+        public void MergeSortByDeparture(List<Flight> theoList)
+        {
+            if (theoList == null)
+            {
+                throw new ArgumentNullException(nameof(theoList));
+            }
+
+            myiMergeSortComparisonCount = 0;
+            if (theoList.Count < 2)
+            {
+                return;
+            }
+
+            Flight[] aoTemporary = new Flight[theoList.Count];
+            MergeSortByDeparture(theoList, aoTemporary, 0, theoList.Count - 1);
+        }
+
+        /// <summary>
+        /// Recursively divides a flight list range and merges the sorted halves.
+        /// </summary>
+        /// <param name="theoList">The flight list being sorted.</param>
+        /// <param name="theoTemporary">The reusable merge buffer.</param>
+        /// <param name="theiLeft">The inclusive left index.</param>
+        /// <param name="theiRight">The inclusive right index.</param>
+        private void MergeSortByDeparture(List<Flight> theoList, Flight[] theoTemporary, int theiLeft, int theiRight)
+        {
+            if (theiLeft >= theiRight)
+            {
+                return;
+            }
+
+            int aiMiddle = theiLeft + (theiRight - theiLeft) / 2;
+            MergeSortByDeparture(theoList, theoTemporary, theiLeft, aiMiddle);
+            MergeSortByDeparture(theoList, theoTemporary, aiMiddle + 1, theiRight);
+            MergeByDeparture(theoList, theoTemporary, theiLeft, aiMiddle, theiRight);
+        }
+
+        /// <summary>
+        /// Merges two adjacent departure-time-sorted ranges into one sorted range.
+        /// </summary>
+        /// <param name="theoList">The flight list being sorted.</param>
+        /// <param name="theoTemporary">The reusable merge buffer.</param>
+        /// <param name="theiLeft">The inclusive left index.</param>
+        /// <param name="theiMiddle">The final index of the left range.</param>
+        /// <param name="theiRight">The inclusive right index.</param>
+        private void MergeByDeparture(List<Flight> theoList, Flight[] theoTemporary, int theiLeft, int theiMiddle, int theiRight)
+        {
+            int aiLeftIndex = theiLeft;
+            int aiRightIndex = theiMiddle + 1;
+            int aiMergeIndex = theiLeft;
+
+            while (aiLeftIndex <= theiMiddle && aiRightIndex <= theiRight)
+            {
+                myiMergeSortComparisonCount++;
+                if (theoList[aiLeftIndex].DepartureTime <= theoList[aiRightIndex].DepartureTime)
+                {
+                    theoTemporary[aiMergeIndex] = theoList[aiLeftIndex];
+                    aiLeftIndex++;
+                }
+                else
+                {
+                    theoTemporary[aiMergeIndex] = theoList[aiRightIndex];
+                    aiRightIndex++;
+                }
+
+                aiMergeIndex++;
+            }
+
+            while (aiLeftIndex <= theiMiddle)
+            {
+                theoTemporary[aiMergeIndex] = theoList[aiLeftIndex];
+                aiLeftIndex++;
+                aiMergeIndex++;
+            }
+
+            while (aiRightIndex <= theiRight)
+            {
+                theoTemporary[aiMergeIndex] = theoList[aiRightIndex];
+                aiRightIndex++;
+                aiMergeIndex++;
+            }
+
+            for (int aiIndex = theiLeft; aiIndex <= theiRight; aiIndex++)
+            {
+                theoList[aiIndex] = theoTemporary[aiIndex];
+            }
+        }
+
+        /// <summary>
+        /// Finds a flight with an exact departure time in a departure-sorted list.
+        /// </summary>
+        /// <param name="theoSorted">The flight list sorted by departure time ascending.</param>
+        /// <param name="thedtTarget">The exact departure time to find.</param>
+        /// <returns>The index of a matching flight, or -1 when no match exists.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when the flight list is null.</exception>
+        public int BinarySearchByDeparture(List<Flight> theoSorted, DateTime thedtTarget)
+        {
+            if (theoSorted == null)
+            {
+                throw new ArgumentNullException(nameof(theoSorted));
+            }
+
+            int aiLeft = 0;
+            int aiRight = theoSorted.Count - 1;
+
+            while (aiLeft <= aiRight)
+            {
+                int aiMiddle = aiLeft + (aiRight - aiLeft) / 2;
+                int aiComparison = theoSorted[aiMiddle].DepartureTime.CompareTo(thedtTarget);
+
+                if (aiComparison == 0)
+                {
+                    return aiMiddle;
+                }
+
+                if (aiComparison < 0)
+                {
+                    aiLeft = aiMiddle + 1;
+                }
+                else
+                {
+                    aiRight = aiMiddle - 1;
+                }
+            }
+
+            return -1;
+        }
+
         // =====================================================================
         // Q5. COMPLEX LINQ QUERIES (q -> u)
         // =====================================================================
